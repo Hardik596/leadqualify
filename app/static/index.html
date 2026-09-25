@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sales Desk · Sharma Packaging</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">SP</span>
+    <span class="brand-name">Sharma Packaging</span>
+    <span class="brand-sep">/</span>
+    <span class="brand-page">Sales desk</span>
+  </div>
+  <div class="topbar-meta">
+    <span id="server-state" class="server-state">checking server…</span>
+    <span class="sent-count" title="Messages sent to the agent from this browser today. Each one uses a few Gemini requests.">
+      sent today: <b id="sent-today">0</b>
+    </span>
+    <a href="/docs" target="_blank" rel="noopener">API docs</a>
+  </div>
+</header>
+
+<main class="desk">
+
+  <!-- Inbox -->
+  <section class="inbox" aria-label="Leads">
+    <form id="new-lead" class="new-lead">
+      <label for="new-source">New lead from</label>
+      <div class="new-lead-row">
+        <select id="new-source">
+          <option value="whatsapp">WhatsApp</option>
+          <option value="indiamart">IndiaMART</option>
+          <option value="email">Email</option>
+          <option value="web">Website</option>
+        </select>
+        <button type="submit" class="btn">Open</button>
+      </div>
+      <p class="hint">Opening a lead is free. Only messages go to Gemini.</p>
+    </form>
+
+    <div class="inbox-head">
+      <span>Leads</span>
+      <button id="refresh" class="link-btn" type="button">refresh</button>
+    </div>
+    <ul id="lead-list" class="lead-list"></ul>
+    <p id="inbox-empty" class="inbox-empty">No leads yet. Open one above.</p>
+  </section>
+
+  <!-- Conversation -->
+  <section class="thread" aria-label="Conversation">
+    <div id="thread-empty" class="thread-empty">
+      <p>Pick a lead on the left, or open a new one.</p>
+      <p class="muted">You type as the customer. Priya, the sales agent, replies and fills in the sheet on the right.</p>
+    </div>
+
+    <div id="thread-live" class="thread-live" hidden>
+      <div class="thread-head">
+        <div>
+          <span class="thread-title">Lead <span id="thread-id" class="mono"></span></span>
+          <span id="thread-source" class="tag"></span>
+        </div>
+        <span id="thread-started" class="muted"></span>
+      </div>
+
+      <ol id="messages" class="messages"></ol>
+
+      <div id="error" class="error" role="alert" hidden></div>
+
+      <form id="composer" class="composer">
+        <textarea id="input" rows="2" maxlength="2000"
+          placeholder="Write as the customer, e.g. “Need 2000 corrugated boxes a month for our bakery”"></textarea>
+        <div class="composer-row">
+          <span class="hint">Enter to send · Shift+Enter for a new line · no automatic retries</span>
+          <button id="send" type="submit" class="btn btn-primary">Send</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Qualification sheet -->
+  <aside class="sheet" aria-label="Qualification">
+    <div class="sheet-head">
+      <span>Qualification sheet</span>
+      <span id="status-stamp" class="stamp" data-status="new">new</span>
+    </div>
+
+    <dl id="fields" class="fields"></dl>
+
+    <div class="score" id="score-box" hidden>
+      <div class="score-row">
+        <span class="label">Lead score</span>
+        <span><b id="score-num">–</b><span class="muted">/100</span> <span id="score-tier" class="tier"></span></span>
+      </div>
+      <div class="bar"><span id="score-bar"></span></div>
+      <p id="score-reason" class="muted small"></p>
+    </div>
+
+    <div class="toollog">
+      <div class="section-label">Tool calls <span id="tool-count" class="muted"></span></div>
+      <ol id="tool-list" class="tool-list"></ol>
+      <p id="tool-empty" class="muted small">None yet.</p>
+    </div>
+  </aside>
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

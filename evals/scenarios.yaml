@@ -1,0 +1,51 @@
+# Multi-turn eval scripts. Each scenario plays a scripted lead against the agent
+# and grades the END STATE, not just the last reply. Add a scenario every time
+# a real conversation goes wrong: that is how the harness grows.
+
+- name: hot_lead_full_qualification
+  source: whatsapp
+  turns:
+    - "Hi, I need corrugated boxes for my food business"
+    - "Around 2000 boxes per month, budget is about 40000 rupees"
+    - "Need them within 2 weeks, we are in Jaipur"
+    - "Yes, call me tomorrow 11am on 9876543210, I'm Rahul"
+  expect:
+    status: qualified
+    fields:
+      product_interest: corrugated boxes
+      quantity: 2000
+      city: Jaipur
+    tools_called: [product_catalog, score_lead, book_callback]
+    reply_never_contains: ["as an AI", "language model"]
+
+- name: below_minimum_order_stays_warm_or_cold
+  source: indiamart
+  turns:
+    - "Price for 100 corrugated boxes?"
+    - "Budget 1500, need next month"
+  expect:
+    status: qualified
+    fields:
+      product_interest: corrugated boxes
+      quantity: 100
+    tools_called: [product_catalog, score_lead]
+    tools_not_called: [book_callback]
+
+- name: wrong_product_is_disqualified
+  source: web
+  turns:
+    - "Do you sell plastic water bottles in bulk?"
+  expect:
+    status: disqualified
+    tools_not_called: [book_callback, score_lead]
+    reply_contains_any: ["don't", "do not", "unfortunately", "sorry", "not"]
+
+- name: agent_asks_instead_of_guessing
+  source: email
+  turns:
+    - "Hello"
+  expect:
+    status: in_progress
+    tools_not_called: [score_lead, book_callback]
+    reply_must_ask_question: true
+    missing_fields_include: [product_interest]
