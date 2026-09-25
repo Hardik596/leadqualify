@@ -20,10 +20,31 @@ Once you know product, quantity, budget and timeline, call `score_lead`. If the 
 If the lead is clearly not a fit (e.g. wants something we don't sell), say so politely."""
 
 EXTRACT_PROMPT = """Read the conversation between a sales assistant and a lead. Fill the schema
-with only what the LEAD explicitly said. Leave unknown fields null. Set status to
-"qualified" if product, quantity, budget and timeline are all known, "disqualified" if the
-lead wants something the business does not sell or declined, else "in_progress".
-List the still-unknown required fields (product_interest, quantity, budget_inr, timeline) in missing_fields."""
+with only what the LEAD explicitly said. Leave unknown fields null.
+
+Exactly four fields are REQUIRED to qualify: product_interest, quantity, budget_inr, timeline.
+name, company and city are optional: never list them in missing_fields.
+
+status rules, apply the first that matches:
+- "disqualified": the lead wants something the business does not sell, or declined to continue.
+- "qualified": all four required fields are known (even if the quantity is below minimum order
+  or the budget is low; scoring is a separate step).
+- "in_progress": anything else. Never return "new" once the lead has sent a message.
+
+missing_fields = the required fields (from the four above) that are still unknown, else []."""
+
+
+REQUIRED_FIELDS = ("product_interest", "quantity", "budget_inr", "timeline")
+
+
+def finalize(q: LeadQualification) -> LeadQualification:
+    """Derive status and missing_fields in code. The LLM is good at extracting facts and at
+    spotting a disqualifying intent; it is unreliable at applying a fixed business rule
+    (it kept marking below-minimum-order leads as in_progress). Rules belong in code."""
+    if q.status == "disqualified":
+        return q.model_copy(update={"missing_fields": []})
+    missing = [f for f in REQUIRED_FIELDS if getattr(q, f) is None]
+    return q.model_copy(update={"status": "qualified" if not missing else "in_progress", "missing_fields": missing})
 
 
 def _history_to_messages(lead: Lead) -> list[dict]:
@@ -69,5 +90,5 @@ class SalesAgent:
         lead.history.append(ChatTurn(role="assistant", content=reply))
         lead.tool_calls.extend(turn_tool_calls)
         transcript = "\n".join(f"{t.role.upper()}: {t.content}" for t in lead.history)
-        lead.qualification = self.llm.extract(EXTRACT_PROMPT, transcript, LeadQualification)
+        lead.qualification = finalize(self.llm.extract(EXTRACT_PROMPT, transcript, LeadQualification))
         return MessageResponse(reply=reply, qualification=lead.qualification, tool_calls=turn_tool_calls)

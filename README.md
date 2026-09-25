@@ -45,7 +45,7 @@ The response carries the reply, the tool calls made on that turn, and the curren
 ## Test and evaluate
 
 ```bash
-pytest                         # 11 tests, ~5s, offline
+pytest                         # 14 tests, ~5s, offline
 python -m evals.run_evals      # plays 4 scripted leads against Gemini, exits 1 on failure
 python -m evals.run_evals --only wrong_product_is_disqualified
 ```
@@ -64,6 +64,12 @@ qualification status, which tools were and were not called, and reply constraint
   never imports a vendor SDK, so swapping to Claude or an open model is one class.
 - **Structured output is enforced, not requested.** `LeadQualification` is passed to Gemini as
   `response_schema`, so the model cannot return a malformed record.
+- **Business rules live in code, not in the prompt.** The LLM extracts facts and flags a
+  disqualifying intent; `finalize()` in `app/agent.py` derives `status` and `missing_fields`
+  deterministically. The first eval run showed the model marking a below-minimum-order lead as
+  `in_progress` even with every field known; moving the rule into code fixed it permanently.
+- **Transient API errors are retried.** `GeminiLLM._generate` backs off on 429 (free tier is
+  15 requests/min/model) and 503 (model overloaded), honouring the server's retry hint.
 - **Loops are bounded.** A model that keeps calling tools is cut off after `max_tool_rounds` and
   the lead is handed to a human, instead of hanging the request.
 - **Storage is a repository.** `LeadStore` is in-memory here; the interface is what a Postgres

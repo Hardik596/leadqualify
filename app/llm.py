@@ -42,6 +42,26 @@ class GeminiLLM(BaseLLM):
 
         self.client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
         self.model = model or os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+        self.max_retries = int(os.environ.get("GEMINI_MAX_RETRIES", "5"))
+
+    def _generate(self, **kwargs):
+        """generate_content with backoff on transient errors.
+        429 = free-tier rate limit (15 req/min/model), 503 = model overloaded. Both are
+        retryable; anything else (400 bad schema, 404 retired model) is raised immediately."""
+        import re
+        import time
+
+        from google.genai import errors
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                return self.client.models.generate_content(model=self.model, **kwargs)
+            except errors.APIError as exc:
+                if exc.code not in (429, 500, 503) or attempt == self.max_retries:
+                    raise
+                hinted = re.search(r"retry in ([\d.]+)s", str(exc.message or ""), re.I)
+                delay = float(hinted.group(1)) + 1 if hinted else min(2 ** attempt * 2, 60)
+                time.sleep(delay)
 
     def _to_contents(self, messages: list[dict]):
         from google.genai import types
@@ -74,8 +94,7 @@ class GeminiLLM(BaseLLM):
             )
             for t in tools
         ]
-        resp = self.client.models.generate_content(
-            model=self.model,
+        resp = self._generate(
             contents=self._to_contents(messages),
             config=types.GenerateContentConfig(
                 system_instruction=system,
@@ -94,8 +113,7 @@ class GeminiLLM(BaseLLM):
     def extract(self, system: str, text: str, schema: Type[T]) -> T:
         from google.genai import types
 
-        resp = self.client.models.generate_content(
-            model=self.model,
+        resp = self._generate(
             contents=text,
             config=types.GenerateContentConfig(
                 system_instruction=system,
